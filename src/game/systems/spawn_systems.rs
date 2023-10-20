@@ -66,7 +66,7 @@ fn spawn_player(vec: GridVector, cooldown: f32, commands: &mut Commands) -> Enti
             Solid,
             MapEntity,
             Cooldown(cooldown),
-            ControlledType::PlayerControlled,
+            PlayerControlled,
         ))
         .id()
 }
@@ -83,7 +83,6 @@ fn spawn_monster(vec: GridVector, cooldown: f32, commands: &mut Commands) -> Ent
             Solid,
             MapEntity,
             Cooldown(cooldown),
-            ControlledType::AIControlled,
         ))
         .id()
 }
