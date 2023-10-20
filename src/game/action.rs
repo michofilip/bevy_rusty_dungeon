@@ -4,18 +4,36 @@ use super::{components::GridPosition, direction::GridDirection, vector::GridVect
 
 #[derive(Clone, Copy)]
 pub enum Action {
-    MoveAction(Entity, GridDirection),
+    SetCoordinates(Entity, GridVector),
+    SetDirection(Entity, GridDirection),
 }
 
 impl Action {
     pub fn execute(&self, world: &mut World) -> Result<Vec<Action>, ()> {
         match self {
-            Action::MoveAction(entity, direction) => execute_move_action(*entity, direction, world),
+            Action::SetCoordinates(entity, coordinates) => {
+                set_coordinates(*entity, coordinates, world)
+            }
+            Action::SetDirection(entity, direction) => set_direction(*entity, direction, world),
         }
     }
 }
 
-fn execute_move_action(
+fn set_coordinates(
+    entity: Entity,
+    coordinates: &GridVector,
+    world: &mut World,
+) -> Result<Vec<Action>, ()> {
+    let Some(mut grid_position) = world.get_mut::<GridPosition>(entity) else {
+        return Err(());
+    };
+
+    grid_position.coordinates = *coordinates;
+
+    Ok(Vec::new())
+}
+
+fn set_direction(
     entity: Entity,
     direction: &GridDirection,
     world: &mut World,
@@ -24,7 +42,9 @@ fn execute_move_action(
         return Err(());
     };
 
-    grid_position.coordinates += GridVector::from_direction(direction);
+    if grid_position.direction.is_some() {
+        grid_position.direction = Some(*direction);
+    }
 
     Ok(Vec::new())
 }

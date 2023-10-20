@@ -16,9 +16,7 @@ pub struct GridPosition {
 }
 
 #[derive(Component, Debug)]
-pub struct Physics {
-    pub solid: bool,
-}
+pub struct Solid;
 
 #[derive(Component, Debug, Eq, PartialEq, Copy, Clone)]
 pub enum EntityType {

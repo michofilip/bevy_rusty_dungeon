@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::assets::resources::Tileset;
 use crate::game::components::*;
+use crate::game::direction::GridDirection;
 use crate::game::vector::GridVector;
 
 pub fn spawn_game_entity(
@@ -46,10 +47,25 @@ fn spawn_sprite_sheet_bundle(
 }
 
 pub fn update_game_entity_graphics(
-    mut entity_query: Query<(&mut Transform, &GridPosition), Changed<GridPosition>>,
+    mut entity_query: Query<
+        (&mut Transform, &mut TextureAtlasSprite, &GridPosition),
+        Changed<GridPosition>,
+    >,
 ) {
-    for (mut transform, position) in &mut entity_query {
+    for (mut transform, mut sprite, position) in &mut entity_query {
         let new_translation = position.coordinates.to_vec3(transform.translation.z);
         transform.translation = new_translation;
+
+        if let Some(direction) = position.direction {
+            match direction {
+                GridDirection::NorthEast | GridDirection::East | GridDirection::SouthEast => {
+                    sprite.flip_x = false;
+                }
+                GridDirection::NorthWest | GridDirection::West | GridDirection::SouthWest => {
+                    sprite.flip_x = true;
+                }
+                _ => {}
+            }
+        }
     }
 }
