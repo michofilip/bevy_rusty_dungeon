@@ -4,8 +4,6 @@ use crate::game::direction::GridDirection;
 use crate::game::model::*;
 use crate::game::vector::GridVector;
 
-use super::behaviors::Behavior;
-
 #[derive(Component, Debug)]
 pub struct MapEntity;
 
@@ -29,8 +27,5 @@ pub enum EntityType {
 #[derive(Component, Deref, DerefMut, Debug)]
 pub struct Cooldown(pub f32);
 
-#[derive(Component, Debug, Eq, PartialEq, Copy, Clone)]
-pub enum ControlledType {
-    PlayerControlled,
-    AIControlled,
-}
+#[derive(Component, Debug)]
+pub struct PlayerControlled;

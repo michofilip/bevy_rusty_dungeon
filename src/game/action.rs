@@ -6,6 +6,7 @@ use super::{components::GridPosition, direction::GridDirection, vector::GridVect
 pub enum Action {
     SetCoordinates(Entity, GridVector),
     SetDirection(Entity, GridDirection),
+    Despawn(Entity),
 }
 
 impl Action {
@@ -15,6 +16,7 @@ impl Action {
                 set_coordinates(*entity, coordinates, world)
             }
             Action::SetDirection(entity, direction) => set_direction(*entity, direction, world),
+            Action::Despawn(entity) => despawn(*entity, world),
         }
     }
 }
@@ -45,6 +47,12 @@ fn set_direction(
     if grid_position.direction.is_some() {
         grid_position.direction = Some(*direction);
     }
+
+    Ok(Vec::new())
+}
+
+fn despawn(entity: Entity, world: &mut World) -> Result<Vec<Action>, ()> {
+    world.despawn(entity);
 
     Ok(Vec::new())
 }
