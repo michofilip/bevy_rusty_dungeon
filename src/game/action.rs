@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::{components::GridPosition, direction::GridDirection, vector::GridVector};
+use super::{components::GridPosition, directions::GridDirection, vector::GridVector};
 
 #[derive(Clone, Copy)]
 pub enum Action {

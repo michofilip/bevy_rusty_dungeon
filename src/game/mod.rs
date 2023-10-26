@@ -5,7 +5,7 @@ use self::{resources::*, systems::*};
 mod action;
 mod behaviors;
 pub mod components;
-pub mod direction;
+pub mod directions;
 mod model;
 mod resources;
 mod systems;

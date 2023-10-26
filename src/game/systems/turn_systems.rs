@@ -2,11 +2,11 @@ use bevy::prelude::*;
 use bevy::utils::HashSet;
 
 use crate::game::action::Action;
-use crate::game::behaviors::Behavior;
+use crate::game::behaviors;
 use crate::game::components::*;
 use crate::game::resources::*;
 
-pub fn update_no_movement_timer(
+pub fn update_input_cooldown(
     mut accept_input: ResMut<AcceptInput>,
     mut input_cooldown: ResMut<InputCooldown>,
     time: Res<Time>,
@@ -41,9 +41,9 @@ pub fn process_turn(world: &mut World) {
         }
 
         let selected_behavior = if is_player {
-            Behavior::select_player_behavior(entity, world)
+            behaviors::selectors::select_player_behavior(entity, world)
         } else {
-            Some(Behavior::select_ai_behavior(entity, world))
+            Some(behaviors::selectors::select_ai_behavior(entity, world))
         };
 
         if let Some(behavior) = selected_behavior {

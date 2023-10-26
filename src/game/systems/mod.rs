@@ -16,13 +16,10 @@ impl Plugin for GameSystemsPlugin {
             .add_systems(
                 Update,
                 (
-                    process_turn
-                        .run_if(in_state(MainState::Game))
-                        .run_if(resource_exists_and_equals(AcceptInput(true))),
-                    update_no_movement_timer
-                        .run_if(in_state(MainState::Game))
-                        .run_if(resource_exists_and_equals(AcceptInput(false))),
-                ),
+                    process_turn.run_if(resource_exists_and_equals(AcceptInput(true))),
+                    update_input_cooldown.run_if(resource_exists_and_equals(AcceptInput(false))),
+                )
+                    .run_if(in_state(MainState::Game)),
             );
     }
 }

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::assets::resources::Tileset;
 use crate::game::components::*;
-use crate::game::direction::GridDirection;
+use crate::game::directions::GridDirection;
 use crate::game::vector::GridVector;
 
 pub fn spawn_game_entity(

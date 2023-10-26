@@ -1,7 +1,7 @@
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use crate::constants::GRID_SIZE;
-use crate::game::direction::GridDirection;
+use crate::game::directions::GridDirection;
 use bevy::prelude::*;
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::game::components::*;
-use crate::game::direction::GridDirection;
+use crate::game::directions::GridDirection;
 use crate::game::model::Character;
 use crate::game::model::CharacterType;
 use crate::game::vector::GridVector;
