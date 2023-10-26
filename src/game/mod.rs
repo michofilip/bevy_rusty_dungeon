@@ -16,6 +16,8 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectedEntity>()
+            .init_resource::<InputCooldown>()
+            .init_resource::<AcceptInput>()
             .add_plugins(GameSystemsPlugin);
     }
 }

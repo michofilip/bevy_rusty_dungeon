@@ -6,69 +6,90 @@ use crate::game::behaviors::Behavior;
 use crate::game::components::*;
 use crate::game::resources::*;
 
+pub fn update_no_movement_timer(
+    mut accept_input: ResMut<AcceptInput>,
+    mut input_cooldown: ResMut<InputCooldown>,
+    time: Res<Time>,
+) {
+    if input_cooldown.tick(time.delta()).finished() {
+        accept_input.0 = true;
+    }
+}
+
 pub fn process_turn(world: &mut World) {
+    let mut player_acted = false;
     let mut processed_entities = HashSet::new();
 
     loop {
-        let mut selected_entity = get_mut_selected_entity(world).0;
-        if selected_entity.is_none() {
-            selected_entity = select_min_entity(world);
-        }
-
-        let Some(entity) = selected_entity else {
-            return;
+        let Some(entity) = selected_entity(world)
+            .0
+            .or_else(|| select_next_entity(world))
+        else {
+            break;
         };
 
+        selected_entity(world).0 = Some(entity);
+
         if !processed_entities.insert(entity) {
-            return;
+            break;
         }
 
-        let maybe_behavior = if is_player(entity, world) {
+        let is_player = is_player(entity, world);
+
+        if is_player && player_acted {
+            break;
+        }
+
+        let selected_behavior = if is_player {
             Behavior::select_player_behavior(entity, world)
         } else {
             Some(Behavior::select_ai_behavior(entity, world))
         };
 
-        if let Some(behavior) = maybe_behavior {
+        if let Some(behavior) = selected_behavior {
             let mut cooldown = world.get_mut::<Cooldown>(entity).unwrap();
             cooldown.0 += behavior.cooldown;
             execute_actions(behavior.actions, world);
 
-            get_mut_selected_entity(world).0 = None;
-        } else {
-            get_mut_selected_entity(world).0 = Some(entity);
-        }
+            if is_player {
+                player_acted = true;
+                set_input_cooldown(world);
+            }
 
-        if is_player(entity, world) {
-            return;
+            selected_entity(world).0 = None;
         }
     }
 }
 
-fn get_mut_selected_entity(world: &mut World) -> Mut<SelectedEntity> {
+fn selected_entity(world: &mut World) -> Mut<SelectedEntity> {
     world.resource_mut::<SelectedEntity>()
 }
 
-fn select_min_entity(world: &mut World) -> Option<Entity> {
-    let mut min_entity = None;
+fn set_input_cooldown(world: &mut World) {
+    world.resource_mut::<InputCooldown>().reset();
+    world.resource_mut::<AcceptInput>().0 = false;
+}
+
+fn select_next_entity(world: &mut World) -> Option<Entity> {
+    let mut selected_entity = None;
     let mut min_cooldown = 0.0;
 
     let mut query = world.query::<(Entity, &Cooldown)>();
     for (entity, cooldown) in query.iter(world) {
-        if min_entity == None || cooldown.0 < min_cooldown {
-            min_entity = Some(entity);
+        if selected_entity == None || cooldown.0 < min_cooldown {
+            selected_entity = Some(entity);
             min_cooldown = cooldown.0;
         }
     }
 
-    let mut query = world.query::<&mut Cooldown>();
     if min_cooldown > 0.0 {
+        let mut query = world.query::<&mut Cooldown>();
         for mut cooldown in query.iter_mut(world) {
             cooldown.0 -= min_cooldown;
         }
     }
 
-    min_entity
+    selected_entity
 }
 
 fn is_player(entity: Entity, world: &mut World) -> bool {
