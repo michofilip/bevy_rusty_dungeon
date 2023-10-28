@@ -12,8 +12,4 @@ impl Behavior {
     pub fn new(cooldown: f32, actions: Vec<Action>) -> Self {
         Self { cooldown, actions }
     }
-
-    pub fn empty(cooldown: f32) -> Self {
-        Self::new(cooldown, Vec::new())
-    }
 }
