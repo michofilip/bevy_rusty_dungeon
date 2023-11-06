@@ -1,6 +1,3 @@
-use std::time::Duration;
-
-use bevy::asset::ChangeWatcher;
 use bevy::prelude::*;
 
 use crate::constants::*;
@@ -25,10 +22,6 @@ impl Plugin for SetupPlugin {
                             ..default()
                         }),
                         ..default()
-                    })
-                    .set(AssetPlugin {
-                        watch_for_changes: ChangeWatcher::with_delay(Duration::from_secs(1)),
-                        ..Default::default()
                     })
                     .build(),
             )

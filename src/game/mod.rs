@@ -2,12 +2,11 @@ use bevy::prelude::*;
 
 use self::{resources::*, systems::*};
 
-mod action;
-mod behaviors;
 pub mod components;
 pub mod directions;
 mod model;
 mod resources;
+pub mod services;
 mod systems;
 pub mod vector;
 

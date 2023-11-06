@@ -10,15 +10,24 @@ pub fn check_asset_loading(
     asset_list: Res<AssetList>,
     mut next_state: ResMut<NextState<MainState>>,
 ) {
-    match asset_server.get_group_load_state(asset_list.0.iter().map(|a| a.id())) {
-        LoadState::Loaded => {
-            next_state.set(MainState::Game);
+    for handle in &asset_list.0 {
+        match asset_server.get_load_state(handle.id()) {
+            None => {
+                error!("asset missing");
+            }
+            Some(load_state) => match load_state {
+                LoadState::Loaded => {}
+                LoadState::Failed => {
+                    error!("asset loading error");
+                }
+                _ => {
+                    return;
+                }
+            },
         }
-        LoadState::Failed => {
-            error!("asset loading error");
-        }
-        _ => {}
-    };
+    }
+
+    next_state.set(MainState::Game);
 }
 
 pub fn load_tileset(
@@ -28,7 +37,7 @@ pub fn load_tileset(
     mut asset_list: ResMut<AssetList>,
 ) {
     let texture = asset_server.load(TILESET_PATH);
-    asset_list.0.push(texture.clone_untyped());
+    asset_list.0.push(texture.clone().untyped());
     let atlas = TextureAtlas::from_grid(
         texture,
         Vec2::splat(16.0),
