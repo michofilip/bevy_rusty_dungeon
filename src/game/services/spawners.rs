@@ -2,8 +2,8 @@ use bevy::prelude::*;
 
 use crate::game::components::*;
 use crate::game::directions::GridDirection;
-use crate::game::model::Character;
 use crate::game::model::CharacterType;
+use crate::game::model::{Character, Door};
 use crate::game::vector::GridVector;
 
 pub fn spawn_floor(vec: GridVector, world: &mut World) -> Entity {
@@ -25,6 +25,21 @@ pub fn spawn_wall(vec: GridVector, world: &mut World) -> Entity {
         .spawn((
             Name::new("wall"),
             EntityType::Static,
+            GridPosition {
+                coordinates: vec,
+                direction: None,
+            },
+            Solid,
+            MapEntity,
+        ))
+        .id()
+}
+
+pub fn spawn_door(vec: GridVector, closed: bool, world: &mut World) -> Entity {
+    world
+        .spawn((
+            Name::new("door"),
+            EntityType::Door(Door::new(closed)),
             GridPosition {
                 coordinates: vec,
                 direction: None,

@@ -17,12 +17,13 @@ pub enum CharacterType {
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct Door {
-    pub close: bool,
+    // TODO use enum OPEN, CLOSE, LOCKED
+    pub closed: bool,
 }
 
 impl Door {
-    pub fn new(close: bool) -> Self {
-        Self { close }
+    pub fn new(closed: bool) -> Self {
+        Self { closed }
     }
 
     pub fn open(&self) -> Self {

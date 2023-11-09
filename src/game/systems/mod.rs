@@ -12,7 +12,7 @@ pub struct GameSystemsPlugin;
 
 impl Plugin for GameSystemsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(MainState::Game), spawn_level)
+        app.add_systems(OnEnter(MainState::Game), spawn_level_2)
             .add_systems(
                 Update,
                 (

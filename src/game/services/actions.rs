@@ -1,7 +1,11 @@
+use std::ops::Deref;
+
 use bevy::prelude::*;
 
-use crate::game::components::{Cooldown, GridPosition};
+use crate::game::components::*;
 use crate::game::directions::GridDirection;
+use crate::game::model::CharacterType;
+use crate::game::services::utils;
 use crate::game::vector::GridVector;
 
 pub enum MoveType {
@@ -9,38 +13,71 @@ pub enum MoveType {
     Run,
 }
 
-pub fn wait(entity: Entity, world: &mut World) {
+pub fn wait(entity: Entity, world: &mut World) -> bool {
     update_cooldown(entity, 1.0, world);
+    true
 }
 
-pub fn move_to(
+pub fn attempt_to_move(
     entity: Entity,
     coordinates: GridVector,
     direction: GridDirection,
     move_type: MoveType,
     world: &mut World,
-) {
+) -> bool {
+    if utils::is_solids_at(coordinates, world) {
+        return false;
+    }
+
+    let mut position = world.get_mut::<GridPosition>(entity).unwrap();
+    position.coordinates = coordinates;
+    if position.direction.is_some() {
+        position.direction = Some(direction);
+    }
+
     let cooldown = match move_type {
         MoveType::Walk => 1.0,
         MoveType::Run => 0.5,
     };
-
-    let Some(mut grid_position) = world.get_mut::<GridPosition>(entity) else {
-        return;
-    };
-
-    grid_position.coordinates = coordinates;
-    if grid_position.direction.is_some() {
-        grid_position.direction = Some(direction);
-    }
-
     update_cooldown(entity, cooldown, world);
+
+    true
 }
 
-pub fn attack(source_entity: Entity, target_entity: Entity, world: &mut World) {
+pub fn attempt_to_attack(
+    entity: Entity,
+    coordinates: GridVector,
+    character_type: CharacterType,
+    world: &mut World,
+) -> bool {
+    let Some(target_entity) = utils::get_character_at(character_type, coordinates, world) else {
+        return false;
+    };
+
     // TODO
     world.despawn(target_entity);
-    update_cooldown(source_entity, 1.0, world);
+    update_cooldown(entity, 1.0, world);
+
+    true
+}
+
+pub fn attempt_to_open_door(entity: Entity, coordinates: GridVector, world: &mut World) -> bool {
+    if let Some(door_entity) = utils::get_door_at(coordinates, world) {
+        let mut entity_type = world.get_mut::<EntityType>(door_entity).unwrap();
+        match entity_type.deref() {
+            EntityType::Door(door) => {
+                if door.closed {
+                    entity_type.set_if_neq(EntityType::Door(door.open()));
+                    world.entity_mut(door_entity).remove::<Solid>();
+                    update_cooldown(entity, 1.0, world);
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    false
 }
 
 fn update_cooldown(entity: Entity, cooldown: f32, world: &mut World) {

@@ -13,48 +13,28 @@ pub fn player_behavior(entity: Entity, world: &mut World) -> bool {
     };
 
     match player_action {
-        player_actions::PlayerAction::Wait => {
-            actions::wait(entity, world);
-            true
-        }
+        player_actions::PlayerAction::Wait => actions::wait(entity, world),
         player_actions::PlayerAction::MoveAttack(direction) => {
-            let position = world.get::<GridPosition>(entity).unwrap();
-            let target_coordinates = position.coordinates + GridVector::from_direction(&direction);
-
-            if let Some(target_entity) =
-                utils::get_character_at(CharacterType::Monster, target_coordinates, world)
-            {
-                actions::attack(entity, target_entity, world);
-                true
-            } else if !utils::is_solids_at(target_coordinates, world) {
-                actions::move_to(
+            let coordinates = utils::get_shifted_coordinates(entity, direction, world).unwrap();
+            actions::attempt_to_attack(entity, coordinates, CharacterType::Monster, world)
+                || actions::attempt_to_open_door(entity, coordinates, world)
+                || actions::attempt_to_move(
                     entity,
-                    target_coordinates,
+                    coordinates,
                     direction,
                     actions::MoveType::Walk,
                     world,
-                );
-                true
-            } else {
-                false
-            }
+                )
         }
         player_actions::PlayerAction::Run(direction) => {
-            let position = world.get::<GridPosition>(entity).unwrap();
-            let target_coordinates = position.coordinates + GridVector::from_direction(&direction);
-
-            if !utils::is_solids_at(target_coordinates, world) {
-                actions::move_to(
-                    entity,
-                    target_coordinates,
-                    direction,
-                    actions::MoveType::Run,
-                    world,
-                );
-                true
-            } else {
-                false
-            }
+            let coordinates = utils::get_shifted_coordinates(entity, direction, world).unwrap();
+            actions::attempt_to_move(
+                entity,
+                coordinates,
+                direction,
+                actions::MoveType::Run,
+                world,
+            )
         }
     }
 }
@@ -62,36 +42,31 @@ pub fn player_behavior(entity: Entity, world: &mut World) -> bool {
 pub fn ai_behavior(entity: Entity, world: &mut World) {
     let mut rng = thread_rng();
 
-    let solids = utils::get_solids(world);
+    let solids = utils::get_static_solids(world);
     let coordinates = world.get::<GridPosition>(entity).unwrap().coordinates;
 
-    if let Some((direction, target_coordinates, target_entity)) = GridDirection::ALL
+    let Some((direction, target_coordinates)) = GridDirection::ALL
         .iter()
         .map(|direction| {
-            let target_coordinates = coordinates + GridVector::from_direction(&direction);
             (
                 direction,
-                target_coordinates,
-                utils::get_character_at(CharacterType::Player, target_coordinates, world),
+                coordinates + GridVector::from_direction(&direction),
             )
         })
-        .filter(|(_, coordinates, target_entity)| {
-            !solids.contains(coordinates) || target_entity.is_some()
-        })
+        .filter(|(_, coordinates)| !solids.contains(coordinates))
         .choose(&mut rng)
-    {
-        if let Some(target_entity) = target_entity {
-            actions::attack(entity, target_entity, world);
-        } else {
-            actions::move_to(
-                entity,
-                target_coordinates,
-                direction.to_owned(),
-                actions::MoveType::Walk,
-                world,
-            );
-        }
-    } else {
+    else {
         actions::wait(entity, world);
-    }
+        return;
+    };
+
+    let _ = actions::attempt_to_attack(entity, target_coordinates, CharacterType::Player, world)
+        || actions::attempt_to_open_door(entity, target_coordinates, world)
+        || actions::attempt_to_move(
+            entity,
+            target_coordinates,
+            direction.to_owned(),
+            actions::MoveType::Walk,
+            world,
+        );
 }
