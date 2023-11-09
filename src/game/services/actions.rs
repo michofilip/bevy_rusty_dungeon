@@ -62,22 +62,25 @@ pub fn attempt_to_attack(
 }
 
 pub fn attempt_to_open_door(entity: Entity, coordinates: GridVector, world: &mut World) -> bool {
-    if let Some(door_entity) = utils::get_door_at(coordinates, world) {
-        let mut entity_type = world.get_mut::<EntityType>(door_entity).unwrap();
-        match entity_type.deref() {
-            EntityType::Door(door) => {
-                if door.closed {
-                    entity_type.set_if_neq(EntityType::Door(door.open()));
-                    world.entity_mut(door_entity).remove::<Solid>();
-                    update_cooldown(entity, 1.0, world);
-                    return true;
-                }
-            }
-            _ => {}
-        }
-    }
+    let Some(door_entity) = utils::get_door_at(coordinates, world) else {
+        return false;
+    };
 
-    false
+    let mut entity_type = world.get_mut::<EntityType>(door_entity).unwrap();
+    match entity_type.deref() {
+        EntityType::Door(mut door) => {
+            if door.closed {
+                door.open();
+                entity_type.set_if_neq(EntityType::Door(door));
+                world.entity_mut(door_entity).remove::<Solid>();
+                update_cooldown(entity, 1.0, world);
+                true
+            } else {
+                false
+            }
+        }
+        _ => false,
+    }
 }
 
 fn update_cooldown(entity: Entity, cooldown: f32, world: &mut World) {

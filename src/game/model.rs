@@ -26,12 +26,12 @@ impl Door {
         Self { closed }
     }
 
-    pub fn open(&self) -> Self {
-        Self::new(false)
+    pub fn open(&mut self) {
+        self.closed = false;
     }
 
-    pub fn close(&self) -> Self {
-        Self::new(true)
+    pub fn close(&mut self) {
+        self.closed = true;
     }
 }
 
@@ -45,7 +45,7 @@ impl Switch {
         Self { on }
     }
 
-    pub fn switch(&self) -> Self {
-        Self::new(!self.on)
+    pub fn switch(&mut self) {
+        self.on = !self.on;
     }
 }
