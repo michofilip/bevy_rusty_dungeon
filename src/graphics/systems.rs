@@ -20,22 +20,16 @@ pub fn spawn_game_entity(
             ));
         };
 
-        match entity_type {
-            EntityType::Static => match name.as_str() {
-                "floor" => insert_graphics(0.0, 0),
-                "wall" => insert_graphics(10.0, 1),
-                _ => {}
-            },
-            EntityType::Character(_) => match name.as_str() {
-                "player" => insert_graphics(20.0, 8),
-                "monster" => insert_graphics(20.0, 9),
-                _ => {}
-            },
-            EntityType::Door(door) => match name.as_str() {
-                "door" => insert_graphics(10.0, if door.closed { 3 } else { 2 }),
-                _ => {}
-            },
-            EntityType::Switch(_) => {}
+        match (name.as_str(), entity_type) {
+            ("floor", EntityType::Static) => insert_graphics(0.0, 0),
+            ("wall", EntityType::Static) => insert_graphics(10.0, 1),
+            ("door", EntityType::Door(door)) => {
+                let sprite_index = if door.closed { 3 } else { 2 };
+                insert_graphics(10.0, sprite_index)
+            }
+            ("player", EntityType::Character(_)) => insert_graphics(20.0, 8),
+            ("monster", EntityType::Character(_)) => insert_graphics(20.0, 9),
+            _ => {}
         }
     }
 }
@@ -87,11 +81,8 @@ pub fn update_game_entity_graphics(
             EntityType::Static => {}
             EntityType::Character(_) => {}
             EntityType::Door(door) => {
-                if door.closed {
-                    sprite.index = 3;
-                } else {
-                    sprite.index = 2;
-                }
+                let sprite_index = if door.closed { 3 } else { 2 };
+                sprite.index = sprite_index;
             }
             EntityType::Switch(_) => {}
         }
