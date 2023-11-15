@@ -1,159 +1,138 @@
-use crate::game::services::game_world::GameWorld;
-use crate::game::vector::GridVector;
+use bevy::asset::AssetContainer;
 use bevy::utils::HashMap;
 use rand::prelude::*;
-use rand::Rng;
 
-#[derive(Eq, PartialEq, Hash, Copy, Clone, Debug)]
-struct Point {
-    pub x: i32,
-    pub y: i32,
-}
-
-impl Point {
-    fn new(x: usize, y: usize) -> Self {
-        Self {
-            x: x as i32,
-            y: y as i32,
-        }
-    }
-
-    fn up(&self) -> Self {
-        Self {
-            x: self.x,
-            y: self.y + 1,
-        }
-    }
-
-    fn down(&self) -> Self {
-        Self {
-            x: self.x,
-            y: self.y - 1,
-        }
-    }
-
-    fn right(&self) -> Self {
-        Self {
-            x: self.x + 1,
-            y: self.y,
-        }
-    }
-
-    fn left(&self) -> Self {
-        Self {
-            x: self.x - 1,
-            y: self.y,
-        }
-    }
-}
-
-#[derive(Eq, PartialEq, Hash, Copy, Clone, Debug)]
-enum EdgeType {
-    NoWall,
-    Wall,
-    Passage,
-    Door(bool),
-}
+use crate::game::services::game_world::GameWorld;
+use crate::game::vector::GridVector;
 
 struct Dungeon {
     columns: HashMap<Point, bool>,
-    edges_horizontal: HashMap<Point, EdgeType>,
-    edges_vertical: HashMap<Point, EdgeType>,
-    rooms: HashMap<Point, bool>,
+    horizontal_borders: HashMap<Point, BorderType>,
+    vertical_borders: HashMap<Point, BorderType>,
+    rooms: HashMap<Point, RoomType>,
 }
 
 impl Dungeon {
     fn new() -> Self {
         Self {
             columns: HashMap::new(),
-            edges_horizontal: HashMap::new(),
-            edges_vertical: HashMap::new(),
+            horizontal_borders: HashMap::new(),
+            vertical_borders: HashMap::new(),
             rooms: HashMap::new(),
         }
     }
 }
 
-pub fn create_dungeon(
-    game_world: &mut GameWorld,
-    anchor: GridVector,
-    rooms_horizontal: usize,
-    rooms_vertical: usize,
-    rng: &mut ThreadRng,
-) {
-    let dungeon = generate_dungeon(rooms_horizontal, rooms_vertical, rng);
-    add_to_world(dungeon, game_world, anchor);
+pub struct DungeonSettings {
+    pub anchor: GridVector,
+    pub rooms_horizontal: usize,
+    pub rooms_vertical: usize,
+    pub rooms_width: usize,
+    pub rooms_height: usize,
+    pub spawn_wall_probability: f32,
+    pub spawn_passege_probability: f32,
+    pub spawn_door_probability: f32,
+    pub fill_room_probability: f32,
+    pub always_fill_outer_borders: bool,
+    pub always_fill_lone_columns: bool,
+    pub always_fill_closed_rooms: bool,
 }
 
-fn generate_dungeon(
-    rooms_horizontal: usize,
-    rooms_vertical: usize,
-    rng: &mut ThreadRng,
-) -> Dungeon {
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
+struct Point(i32, i32);
+
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
+enum BorderType {
+    Nothing,
+    Wall,
+    Passage,
+    Door,
+}
+
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
+enum RoomType {
+    Empty,
+    AttempedToFill,
+}
+
+pub fn create_dungeon(game_world: &mut GameWorld, settings: DungeonSettings, rng: &mut ThreadRng) {
+    let dungeon = generate_dungeon(&settings, rng);
+    add_to_world(game_world, dungeon, &settings);
+}
+
+fn generate_dungeon(settings: &DungeonSettings, rng: &mut ThreadRng) -> Dungeon {
     let mut dungeon = Dungeon::new();
 
-    for x in 0..rooms_horizontal {
-        for y in 0..=rooms_vertical {
-            let point = Point::new(2 * x + 1, 2 * y);
+    // horizontal borders
+    for x in 0..settings.rooms_horizontal {
+        for y in 0..=settings.rooms_vertical {
+            let point = Point(x as i32, y as i32);
 
-            if y == 0 || y == rooms_vertical {
-                dungeon.edges_horizontal.insert(point, EdgeType::Wall);
+            if settings.always_fill_outer_borders && (y == 0 || y == settings.rooms_vertical) {
+                dungeon.horizontal_borders.insert(point, BorderType::Wall);
             } else {
-                dungeon.edges_horizontal.insert(point, get_wall_type(rng));
+                dungeon
+                    .horizontal_borders
+                    .insert(point, select_border_type(rng, &settings));
             }
         }
     }
 
-    for x in 0..=rooms_horizontal {
-        for y in 0..rooms_vertical {
-            let point = Point::new(2 * x, 2 * y + 1);
+    // vertical borders
+    for x in 0..=settings.rooms_horizontal {
+        for y in 0..settings.rooms_vertical {
+            let point = Point(x as i32, y as i32);
 
-            if x == 0 || x == rooms_horizontal {
-                dungeon.edges_vertical.insert(point, EdgeType::Wall);
+            if settings.always_fill_outer_borders && (x == 0 || x == settings.rooms_horizontal) {
+                dungeon.vertical_borders.insert(point, BorderType::Wall);
             } else {
-                dungeon.edges_vertical.insert(point, get_wall_type(rng));
+                dungeon
+                    .vertical_borders
+                    .insert(point, select_border_type(rng, &settings));
             }
         }
     }
 
-    for x in 0..=rooms_horizontal {
-        for y in 0..=rooms_vertical {
-            let point = Point::new(2 * x, 2 * y);
+    // columns
+    for x in 0..=settings.rooms_horizontal {
+        for y in 0..=settings.rooms_vertical {
+            let point = Point(x as i32, y as i32);
+            let point_left = Point(x as i32 - 1, y as i32);
+            let point_down = Point(x as i32, y as i32 - 1);
 
-            if x == 0 || x == rooms_horizontal || y == 0 || y == rooms_vertical {
-                dungeon.columns.insert(point, true);
-            } else {
-                let can_put_column = !(dungeon.edges_horizontal.get(&point.left())
-                    == Some(&EdgeType::NoWall)
-                    && dungeon.edges_horizontal.get(&point.right()) == Some(&EdgeType::NoWall)
-                    && dungeon.edges_vertical.get(&point.up()) == Some(&EdgeType::NoWall)
-                    && dungeon.edges_vertical.get(&point.down()) == Some(&EdgeType::NoWall));
-
-                dungeon.columns.insert(point, can_put_column);
-            }
-        }
-    }
-
-    for x in 0..rooms_horizontal {
-        for y in 0..rooms_vertical {
-            let point = Point::new(2 * x + 1, 2 * y + 1);
-
-            let check_edges = |edge_type: &EdgeType| {
-                dungeon.edges_horizontal.get(&point.up()) == Some(edge_type)
-                    && dungeon.edges_horizontal.get(&point.down()) == Some(edge_type)
-                    && dungeon.edges_vertical.get(&point.right()) == Some(edge_type)
-                    && dungeon.edges_vertical.get(&point.left()) == Some(edge_type)
+            let need_column = || {
+                !(test_horizontal_border(&dungeon, &point_left, &BorderType::Nothing)
+                    && test_horizontal_border(&dungeon, &point, &BorderType::Nothing)
+                    && test_vertical_border(&dungeon, &point_down, &BorderType::Nothing)
+                    && test_vertical_border(&dungeon, &point, &BorderType::Nothing))
             };
 
-            let must_fill = check_edges(&EdgeType::Wall);
+            dungeon
+                .columns
+                .insert(point, settings.always_fill_lone_columns || need_column());
+        }
+    }
 
-            if must_fill {
-                dungeon.rooms.insert(point, true);
+    // rooms
+    for x in 0..settings.rooms_horizontal {
+        for y in 0..settings.rooms_vertical {
+            let point = Point(x as i32, y as i32);
+            let point_right = Point(x as i32 + 1, y as i32);
+            let point_up = Point(x as i32, y as i32 + 1);
+
+            let closed_room = || {
+                test_horizontal_border(&dungeon, &point, &BorderType::Wall)
+                    && test_horizontal_border(&dungeon, &point_up, &BorderType::Wall)
+                    && test_vertical_border(&dungeon, &point, &BorderType::Wall)
+                    && test_vertical_border(&dungeon, &point_right, &BorderType::Wall)
+            };
+
+            if settings.always_fill_closed_rooms && closed_room() {
+                dungeon.rooms.insert(point, RoomType::AttempedToFill);
             } else {
-                let can_fill = !check_edges(&EdgeType::NoWall);
-
                 dungeon
                     .rooms
-                    .insert(point, must_fill || (can_fill && rng.gen_bool(0.5)));
+                    .insert(point, select_room_type(rng, &settings));
             }
         }
     }
@@ -161,134 +140,229 @@ fn generate_dungeon(
     dungeon
 }
 
-fn add_to_world(dungeon: Dungeon, game_world: &mut GameWorld, anchor: GridVector) {
-    for (point, is_column) in dungeon.columns {
-        let vec = GridVector::new(2 * point.x + anchor.x, 2 * point.y + anchor.y);
-        if is_column {
-            game_world.add_wall(vec);
+fn add_to_world(game_world: &mut GameWorld, dungeon: Dungeon, settings: &DungeonSettings) {
+    let anchor = settings.anchor;
+
+    for (Point(x, y), is_column) in &dungeon.columns {
+        let corner = GridVector::new(
+            (settings.rooms_width + 1) as i32 * x,
+            (settings.rooms_height + 1) as i32 * y,
+        ) + anchor;
+
+        if *is_column {
+            game_world.add_wall(corner);
         } else {
-            game_world.add_floor(vec);
+            game_world.add_floor(corner);
         }
     }
 
-    for (point, edge_horizontal) in &dungeon.edges_horizontal {
-        let x = 2 * point.x - 1 + anchor.x;
-        let y = 2 * point.y + anchor.y;
+    for (Point(x, y), border_type) in &dungeon.horizontal_borders {
+        let corner = GridVector::new(
+            (settings.rooms_width + 1) as i32 * x + 1,
+            (settings.rooms_height + 1) as i32 * y,
+        ) + anchor;
 
-        let edge_vecs = (0..3)
-            .map(|i| GridVector::new(x + i, y))
+        let vecs = (0..settings.rooms_width)
+            .map(|i| GridVector::new(i as i32, 0) + corner)
             .collect::<Vec<GridVector>>();
 
-        create_edge(game_world, *edge_horizontal, edge_vecs);
+        add_border(game_world, border_type, vecs);
     }
 
-    for (point, edge_vertical) in &dungeon.edges_vertical {
-        let x = 2 * point.x + anchor.x;
-        let y = 2 * point.y - 1 + anchor.y;
+    for (Point(x, y), border_type) in &dungeon.vertical_borders {
+        let corner = GridVector::new(
+            (settings.rooms_width + 1) as i32 * x,
+            (settings.rooms_height + 1) as i32 * y + 1,
+        ) + anchor;
 
-        let edge_vecs = (0..3)
-            .map(|i| GridVector::new(x, y + i))
+        let vecs = (0..settings.rooms_height)
+            .map(|i| GridVector::new(0, i as i32) + corner)
             .collect::<Vec<GridVector>>();
 
-        create_edge(game_world, *edge_vertical, edge_vecs);
+        add_border(game_world, border_type, vecs);
     }
 
-    for (point, filled) in dungeon.rooms {
-        let x = 2 * point.x - 1 + anchor.x;
-        let y = 2 * point.y - 1 + anchor.y;
+    for (Point(x, y), room_type) in &dungeon.rooms {
+        let corner = GridVector::new(
+            (settings.rooms_width + 1) as i32 * x + 1,
+            (settings.rooms_height + 1) as i32 * y + 1,
+        ) + anchor;
 
-        for dx in 0..3 {
-            for dy in 0..3 {
-                game_world.add_floor(GridVector::new(x + dx, y + dy));
+        enum PointType {
+            CornerNE,
+            CornerSE,
+            CornerSW,
+            CornerNW,
+            EdgeN,
+            EdgeE,
+            EdgeS,
+            EdgeW,
+            Center,
+        }
+
+        let mut vecs = Vec::new();
+        let center_x = settings.rooms_width / 2;
+        let center_y = settings.rooms_height / 2;
+        for dx in 0..settings.rooms_width {
+            for dy in 0..settings.rooms_height {
+                let point_type = if dx < center_x && dy < center_y {
+                    PointType::CornerSW
+                } else if dx > center_x && dy < center_y {
+                    PointType::CornerSE
+                } else if dx < center_x && dy > center_y {
+                    PointType::CornerNW
+                } else if dx > center_x && dy > center_y {
+                    PointType::CornerNE
+                } else if dx == center_x && dy < center_y {
+                    PointType::EdgeS
+                } else if dx == center_x && dy > center_y {
+                    PointType::EdgeN
+                } else if dx < center_x && dy == center_y {
+                    PointType::EdgeW
+                } else if dx > center_x && dy == center_y {
+                    PointType::EdgeE
+                } else {
+                    PointType::Center
+                };
+
+                vecs.push((GridVector::new(dx as i32, dy as i32) + corner, point_type));
             }
         }
 
-        if filled {
-            let ne_corner = dungeon.edges_horizontal.get(&point.up()) != Some(&EdgeType::NoWall)
-                && dungeon.edges_vertical.get(&point.right()) != Some(&EdgeType::NoWall);
-            let se_corner = dungeon.edges_horizontal.get(&point.down()) != Some(&EdgeType::NoWall)
-                && dungeon.edges_vertical.get(&point.right()) != Some(&EdgeType::NoWall);
-            let sw_corner = dungeon.edges_horizontal.get(&point.down()) != Some(&EdgeType::NoWall)
-                && dungeon.edges_vertical.get(&point.left()) != Some(&EdgeType::NoWall);
-            let nw_corner = dungeon.edges_horizontal.get(&point.up()) != Some(&EdgeType::NoWall)
-                && dungeon.edges_vertical.get(&point.left()) != Some(&EdgeType::NoWall);
+        match room_type {
+            RoomType::Empty => {
+                for (vec, _) in &vecs {
+                    game_world.add_floor(vec.to_owned());
+                }
+            }
+            RoomType::AttempedToFill => {
+                let point = Point(*x, *y);
+                let point_right = Point(*x + 1, *y);
+                let point_up = Point(*x, *y + 1);
 
-            let n_edge = ne_corner
-                && nw_corner
-                && dungeon.edges_horizontal.get(&point.up()) == Some(&EdgeType::Wall);
-            let e_edge = ne_corner
-                && se_corner
-                && dungeon.edges_vertical.get(&point.right()) == Some(&EdgeType::Wall);
-            let s_edge = se_corner
-                && sw_corner
-                && dungeon.edges_horizontal.get(&point.down()) == Some(&EdgeType::Wall);
-            let w_edge = nw_corner
-                && sw_corner
-                && dungeon.edges_vertical.get(&point.left()) == Some(&EdgeType::Wall);
+                let ne_corner = !test_horizontal_border(&dungeon, &point_up, &BorderType::Nothing)
+                    && !test_vertical_border(&dungeon, &point_right, &BorderType::Nothing);
 
-            let center = n_edge && e_edge && s_edge && w_edge;
+                let se_corner = !test_horizontal_border(&dungeon, &point, &BorderType::Nothing)
+                    && !test_vertical_border(&dungeon, &point_right, &BorderType::Nothing);
 
-            if ne_corner {
-                game_world.add_wall(GridVector::new(x + 2, y + 2));
-            }
-            if se_corner {
-                game_world.add_wall(GridVector::new(x + 2, y));
-            }
-            if nw_corner {
-                game_world.add_wall(GridVector::new(x, y + 2));
-            }
-            if sw_corner {
-                game_world.add_wall(GridVector::new(x, y));
-            }
-            if n_edge {
-                game_world.add_wall(GridVector::new(x + 1, y + 2));
-            }
-            if e_edge {
-                game_world.add_wall(GridVector::new(x + 2, y + 1));
-            }
-            if s_edge {
-                game_world.add_wall(GridVector::new(x + 1, y));
-            }
-            if w_edge {
-                game_world.add_wall(GridVector::new(x, y + 1));
-            }
-            if center {
-                game_world.add_wall(GridVector::new(x + 1, y + 1));
+                let sw_corner = !test_horizontal_border(&dungeon, &point, &BorderType::Nothing)
+                    && !test_vertical_border(&dungeon, &point, &BorderType::Nothing);
+
+                let nw_corner = !test_horizontal_border(&dungeon, &point_up, &BorderType::Nothing)
+                    && !test_vertical_border(&dungeon, &point, &BorderType::Nothing);
+
+                let n_border = ne_corner
+                    && nw_corner
+                    && test_horizontal_border(&dungeon, &point_up, &BorderType::Wall);
+                let e_border = ne_corner
+                    && se_corner
+                    && test_vertical_border(&dungeon, &point_right, &BorderType::Wall);
+                let s_border = se_corner
+                    && sw_corner
+                    && test_horizontal_border(&dungeon, &point, &BorderType::Wall);
+                let w_border = nw_corner
+                    && sw_corner
+                    && test_vertical_border(&dungeon, &point, &BorderType::Wall);
+
+                let center = n_border && e_border && s_border && w_border;
+
+                for (vec, point_type) in &vecs {
+                    let fill_point = match point_type {
+                        PointType::CornerNE if ne_corner => true,
+                        PointType::CornerSE if se_corner => true,
+                        PointType::CornerSW if sw_corner => true,
+                        PointType::CornerNW if nw_corner => true,
+                        PointType::EdgeN if n_border => true,
+                        PointType::EdgeE if e_border => true,
+                        PointType::EdgeS if s_border => true,
+                        PointType::EdgeW if w_border => true,
+                        PointType::Center if center => true,
+                        _ => false,
+                    };
+
+                    if fill_point {
+                        game_world.add_wall(vec.to_owned());
+                    } else {
+                        game_world.add_floor(vec.to_owned());
+                    }
+                }
             }
         }
     }
 }
 
-fn get_wall_type(rng: &mut ThreadRng) -> EdgeType {
-    match rng.gen_range(0..4) {
-        0 => EdgeType::Wall,
-        1 => EdgeType::Door(true),
-        2 => EdgeType::Passage,
-        _ => EdgeType::NoWall,
-    }
+fn test_horizontal_border(dungeon: &Dungeon, point: &Point, border_type: &BorderType) -> bool {
+    dungeon
+        .horizontal_borders
+        .get(point)
+        .unwrap_or(&BorderType::Nothing)
+        == border_type
+}
+fn test_vertical_border(dungeon: &Dungeon, point: &Point, border_type: &BorderType) -> bool {
+    dungeon
+        .vertical_borders
+        .get(point)
+        .unwrap_or(&BorderType::Nothing)
+        == border_type
 }
 
-fn create_edge(game_world: &mut GameWorld, edge: EdgeType, edge_vecs: Vec<GridVector>) {
-    match edge {
-        EdgeType::NoWall => {
-            game_world.add_floor(edge_vecs[0]);
-            game_world.add_floor(edge_vecs[1]);
-            game_world.add_floor(edge_vecs[2]);
+fn select_border_type(rng: &mut ThreadRng, settings: &DungeonSettings) -> BorderType {
+    let nothing_probability = (1.0
+        - settings.spawn_wall_probability
+        - settings.spawn_passege_probability
+        - settings.spawn_door_probability)
+        .min(0.0);
+
+    let weights = |border_type: &BorderType| match border_type {
+        BorderType::Nothing => nothing_probability,
+        BorderType::Wall => settings.spawn_wall_probability,
+        BorderType::Passage => settings.spawn_passege_probability,
+        BorderType::Door => settings.spawn_door_probability,
+    };
+
+    [
+        BorderType::Wall,
+        BorderType::Door,
+        BorderType::Passage,
+        BorderType::Nothing,
+    ]
+    .choose_weighted(rng, weights)
+    .unwrap()
+    .to_owned()
+}
+
+fn select_room_type(rng: &mut ThreadRng, settings: &DungeonSettings) -> RoomType {
+    let weights = |room_type: &RoomType| match room_type {
+        RoomType::Empty => 1.0 - settings.fill_room_probability,
+        RoomType::AttempedToFill => settings.fill_room_probability,
+    };
+
+    [RoomType::Empty, RoomType::AttempedToFill]
+        .choose_weighted(rng, weights)
+        .unwrap()
+        .to_owned()
+}
+
+fn add_border(game_world: &mut GameWorld, border_type: &BorderType, vecs: Vec<GridVector>) {
+    match border_type {
+        BorderType::Nothing => {
+            for vec in &vecs {
+                game_world.add_floor(vec.to_owned());
+            }
         }
-        EdgeType::Wall => {
-            game_world.add_wall(edge_vecs[0]);
-            game_world.add_wall(edge_vecs[1]);
-            game_world.add_wall(edge_vecs[2]);
+        BorderType::Wall | BorderType::Passage | BorderType::Door => {
+            for vec in &vecs {
+                game_world.add_wall(vec.to_owned());
+            }
         }
-        EdgeType::Passage => {
-            game_world.add_wall(edge_vecs[0]);
-            game_world.add_floor(edge_vecs[1]);
-            game_world.add_wall(edge_vecs[2]);
-        }
-        EdgeType::Door(closed) => {
-            game_world.add_wall(edge_vecs[0]);
-            game_world.add_door(edge_vecs[1], closed);
-            game_world.add_wall(edge_vecs[2]);
-        }
+    }
+
+    if border_type == &BorderType::Passage {
+        game_world.add_floor((&vecs[&vecs.len() / 2]).to_owned());
+    }
+
+    if border_type == &BorderType::Door {
+        game_world.add_door((&vecs[&vecs.len() / 2]).to_owned(), true);
     }
 }

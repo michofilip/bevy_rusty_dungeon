@@ -37,13 +37,22 @@ pub fn spawn_level_2(world: &mut World) {
 
     let mut game_world = GameWorld::empty();
 
-    services::dungeon_generator::create_dungeon(
-        &mut game_world,
-        GridVector::zero(),
-        rooms_horizontal,
-        rooms_vertical,
-        &mut rng,
-    );
+    let settings = services::dungeon_generator::DungeonSettings {
+        anchor: GridVector::zero(),
+        rooms_horizontal: rooms_horizontal,
+        rooms_vertical: rooms_vertical,
+        rooms_width: 3,
+        rooms_height: 3,
+        spawn_wall_probability: 0.25,
+        spawn_passege_probability: 0.25,
+        spawn_door_probability: 0.25,
+        fill_room_probability: 0.5,
+        always_fill_outer_borders: true,
+        always_fill_lone_columns: false,
+        always_fill_closed_rooms: true,
+    };
+
+    services::dungeon_generator::create_dungeon(&mut game_world, settings, &mut rng);
 
     game_world.add_player(GridVector::new(
         4 * (rooms_horizontal as i32 / 2) + 2,
