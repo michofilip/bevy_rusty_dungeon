@@ -2,7 +2,7 @@ use bevy::asset::LoadState;
 use bevy::prelude::*;
 
 use crate::assets::resources::{AssetList, Tileset};
-use crate::constants::TILESET_PATH;
+use crate::constants::*;
 use crate::states::MainState;
 
 pub fn check_asset_loading(
@@ -40,7 +40,7 @@ pub fn load_tileset(
     asset_list.0.push(texture.clone().untyped());
     let atlas = TextureAtlas::from_grid(
         texture,
-        Vec2::splat(16.0),
+        Vec2::splat(BASE_GRID_SIZE),
         8,
         8,
         Some(Vec2::splat(1.0)),

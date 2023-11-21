@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::assets::resources::Tileset;
+use crate::constants::*;
 use crate::game::components::*;
 use crate::game::directions::GridDirection;
 use crate::game::vector::GridVector;
@@ -45,7 +46,7 @@ fn spawn_sprite_sheet_bundle(
     SpriteSheetBundle {
         texture_atlas: tileset.clone(),
         sprite: TextureAtlasSprite::new(sprite_index),
-        transform: Transform::from_translation(translation),
+        transform: Transform::from_translation(translation).with_scale(Vec3::splat(SCALE)),
         ..default()
     }
 }
