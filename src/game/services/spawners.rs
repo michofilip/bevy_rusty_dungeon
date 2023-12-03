@@ -3,14 +3,12 @@ use bevy::prelude::*;
 use crate::game::components::*;
 use crate::game::directions::GridDirection;
 use crate::game::model::CharacterType;
-use crate::game::model::{Character, Door};
 use crate::game::vector::GridVector;
 
 pub fn spawn_floor(vec: GridVector, world: &mut World) -> Entity {
     world
         .spawn((
             Name::new("floor"),
-            EntityType::Static,
             GridPosition {
                 coordinates: vec,
                 direction: None,
@@ -24,7 +22,6 @@ pub fn spawn_wall(vec: GridVector, world: &mut World) -> Entity {
     world
         .spawn((
             Name::new("wall"),
-            EntityType::Static,
             GridPosition {
                 coordinates: vec,
                 direction: None,
@@ -39,7 +36,7 @@ pub fn spawn_door(vec: GridVector, closed: bool, world: &mut World) -> Entity {
     world
         .spawn((
             Name::new("door"),
-            EntityType::Door(Door::new(closed)),
+            Door::new(closed),
             GridPosition {
                 coordinates: vec,
                 direction: None,
@@ -54,7 +51,7 @@ pub fn spawn_player(vec: GridVector, cooldown: f32, world: &mut World) -> Entity
     world
         .spawn((
             Name::new("player"),
-            EntityType::Character(Character::new(CharacterType::Player)),
+            Character::new(CharacterType::Player),
             GridPosition {
                 coordinates: vec,
                 direction: Some(GridDirection::North),
@@ -71,7 +68,7 @@ pub fn spawn_monster(vec: GridVector, cooldown: f32, world: &mut World) -> Entit
     world
         .spawn((
             Name::new("monster"),
-            EntityType::Character(Character::new(CharacterType::Monster)),
+            Character::new(CharacterType::Monster),
             GridPosition {
                 coordinates: vec,
                 direction: Some(GridDirection::North),

@@ -1,6 +1,6 @@
 use bevy::{prelude::*, utils::HashSet};
 
-use crate::game::components::{EntityType, GridPosition, Solid};
+use crate::game::components::*;
 use crate::game::directions::GridDirection;
 use crate::game::model::CharacterType;
 use crate::game::vector::GridVector;
@@ -24,14 +24,11 @@ pub fn get_solids(world: &mut World) -> HashSet<GridVector> {
 }
 
 pub fn get_static_solids(world: &mut World) -> HashSet<GridVector> {
-    let mut query = world.query_filtered::<(&GridPosition, &EntityType), With<Solid>>();
+    let mut query =
+        world.query_filtered::<&GridPosition, (With<Solid>, Without<Character>, Without<Door>)>();
     query
         .iter(world)
-        .filter(|(position, entity_type)| match entity_type {
-            EntityType::Static => true,
-            _ => false,
-        })
-        .map(|(position, _)| position.coordinates)
+        .map(|position| position.coordinates)
         .collect::<HashSet<GridVector>>()
 }
 
@@ -49,27 +46,21 @@ pub fn get_character_at(
     coordinates: GridVector,
     world: &mut World,
 ) -> Option<Entity> {
-    let mut query = world.query::<(Entity, &GridPosition, &EntityType)>();
+    let mut query = world.query::<(Entity, &GridPosition, &Character)>();
     query
         .iter(world)
-        .filter(|(_, position, entity_type)| match entity_type {
-            EntityType::Character(character) => {
-                position.coordinates == coordinates && character.character_type == character_type
-            }
-            _ => false,
+        .filter(|(_, position, character)| {
+            position.coordinates == coordinates && character.character_type == character_type
         })
         .map(|(entity, _, _)| entity)
         .next()
 }
 
 pub fn get_door_at(coordinates: GridVector, world: &mut World) -> Option<Entity> {
-    let mut query = world.query::<(Entity, &GridPosition, &EntityType)>();
+    let mut query = world.query_filtered::<(Entity, &GridPosition), With<Door>>();
     query
         .iter(world)
-        .filter(|(_, position, entity_type)| match entity_type {
-            EntityType::Door(_) => position.coordinates == coordinates,
-            _ => false,
-        })
-        .map(|(entity, _, _)| entity)
+        .filter(|(_, position)| position.coordinates == coordinates)
+        .map(|(entity, _)| entity)
         .next()
 }

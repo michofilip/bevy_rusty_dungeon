@@ -8,10 +8,10 @@ use crate::game::vector::GridVector;
 
 pub fn spawn_game_entity(
     mut commands: Commands,
-    entity_query: Query<(Entity, &Name, &GridPosition, &EntityType), Added<MapEntity>>,
+    entity_query: Query<(Entity, &Name, &GridPosition, Option<&Door>), Added<MapEntity>>,
     tileset: Res<Tileset>,
 ) {
-    for (entity, name, grid_position, entity_type) in &entity_query {
+    for (entity, name, grid_position, door) in &entity_query {
         let mut insert_graphics = |layer: f32, sprite_index: usize| {
             commands.entity(entity).insert(spawn_sprite_sheet_bundle(
                 grid_position.coordinates,
@@ -21,15 +21,17 @@ pub fn spawn_game_entity(
             ));
         };
 
-        match (name.as_str(), entity_type) {
-            ("floor", EntityType::Static) => insert_graphics(0.0, 0),
-            ("wall", EntityType::Static) => insert_graphics(10.0, 1),
-            ("door", EntityType::Door(door)) => {
-                let sprite_index = if door.closed { 3 } else { 2 };
-                insert_graphics(10.0, sprite_index)
+        match name.as_str() {
+            "floor" => insert_graphics(0.0, 0),
+            "wall" => insert_graphics(10.0, 1),
+            "door" => {
+                if let Some(door) = door {
+                    let sprite_index = if door.closed { 3 } else { 2 };
+                    insert_graphics(10.0, sprite_index)
+                }
             }
-            ("player", EntityType::Character(_)) => insert_graphics(20.0, 8),
-            ("monster", EntityType::Character(_)) => insert_graphics(20.0, 9),
+            "player" => insert_graphics(20.0, 8),
+            "monster" => insert_graphics(20.0, 9),
             _ => {}
         }
     }
@@ -57,12 +59,12 @@ pub fn update_game_entity_graphics(
             &mut Transform,
             &mut TextureAtlasSprite,
             &GridPosition,
-            &EntityType,
+            Option<&Door>,
         ),
-        Or<(Changed<GridPosition>, Changed<EntityType>)>,
+        Or<(Changed<GridPosition>, Changed<Door>)>,
     >,
 ) {
-    for (mut transform, mut sprite, position, entity_type) in &mut entity_query {
+    for (mut transform, mut sprite, position, door) in &mut entity_query {
         let new_translation = position.coordinates.to_vec3(transform.translation.z);
         transform.translation = new_translation;
 
@@ -78,14 +80,9 @@ pub fn update_game_entity_graphics(
             }
         }
 
-        match entity_type {
-            EntityType::Static => {}
-            EntityType::Character(_) => {}
-            EntityType::Door(door) => {
-                let sprite_index = if door.closed { 3 } else { 2 };
-                sprite.index = sprite_index;
-            }
-            EntityType::Switch(_) => {}
+        if let Some(door) = door {
+            let sprite_index = if door.closed { 3 } else { 2 };
+            sprite.index = sprite_index;
         }
     }
 }

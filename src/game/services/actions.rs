@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use bevy::prelude::*;
 
 use crate::game::components::*;
@@ -66,20 +64,14 @@ pub fn attempt_to_open_door(entity: Entity, coordinates: GridVector, world: &mut
         return false;
     };
 
-    let mut entity_type = world.get_mut::<EntityType>(door_entity).unwrap();
-    match entity_type.deref() {
-        EntityType::Door(mut door) => {
-            if door.closed {
-                door.open();
-                entity_type.set_if_neq(EntityType::Door(door));
-                world.entity_mut(door_entity).remove::<Solid>();
-                update_cooldown(entity, 1.0, world);
-                true
-            } else {
-                false
-            }
-        }
-        _ => false,
+    let mut door = world.get_mut::<Door>(door_entity).unwrap();
+    if door.closed {
+        door.open();
+        world.entity_mut(door_entity).remove::<Solid>();
+        update_cooldown(entity, 1.0, world);
+        true
+    } else {
+        false
     }
 }
 
